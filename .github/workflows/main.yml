@@ -19,20 +19,38 @@ jobs:
 
       - name: Extract project
         run: |
+          rm -rf project
           mkdir project
           unzip -q virtualphone.zip -d project
 
-      - name: Find Gradle project
+      - name: Find Android project
         run: |
-          GRADLEW=$(find project -name gradlew -type f | head -1)
-          echo "GRADLEW=$GRADLEW" >> $GITHUB_ENV
-          echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> $GITHUB_ENV
+          echo "Searching for build.gradle files..."
+          find project -name "build.gradle" -o -name "build.gradle.kts"
+          echo "Searching for settings files..."
+          find project -name "settings.gradle" -o -name "settings.gradle.kts"
+
+      - name: Install Gradle
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+          unzip -q gradle-9.3.1-bin.zip -d "$HOME"
+          echo "$HOME/gradle-9.3.1/bin" >> "$GITHUB_PATH"
+
+      - name: Find project directory
+        run: |
+          SETTINGS=$(find project -name "settings.gradle.kts" -o -name "settings.gradle" | head -1)
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle file not found"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project found at: $PROJECT_DIR"
 
       - name: Build APK
         run: |
           cd "$PROJECT_DIR"
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
